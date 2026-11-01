@@ -1,0 +1,15 @@
+# Runtime state, logs and private device identifiers
+config.json
+config.json.*
+*.log
+运行日志.txt*
+*diagnos*.json
+# Build and test outputs
+dist/
+bin/
+obj/
+*.pdb
+test-results.txt
+.vs/
+.idea/
+*.user
