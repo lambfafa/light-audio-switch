@@ -1,4 +1,4 @@
-param([switch]$Hardware, [string]$HeadsetName, [string]$SpeakerName)
+﻿param([switch]$Hardware, [string]$HeadsetName, [string]$SpeakerName)
 $ErrorActionPreference = 'Stop'
 if ($Hardware -and (-not $HeadsetName -or -not $SpeakerName)) {
     throw 'Hardware tests temporarily switch audio outputs. Specify two distinct connected devices with -HeadsetName and -SpeakerName.'

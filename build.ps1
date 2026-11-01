@@ -1,4 +1,4 @@
-param([string]$OutputDirectory)
+﻿param([string]$OutputDirectory)
 $ErrorActionPreference = 'Stop'
 $taskRoot = $PSScriptRoot
 $taskSource = Join-Path $taskRoot 'src'
