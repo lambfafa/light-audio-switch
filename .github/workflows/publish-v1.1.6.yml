@@ -1,0 +1,37 @@
+name: Publish Light Audio Switch v1.1.6
+on:
+  push:
+    branches: [codex/publish-v1.1.6]
+    paths: [.github/workflows/publish-v1.1.6.yml]
+permissions:
+  contents: write
+concurrency: publish-light-audio-switch-v1.1.6
+jobs:
+  release:
+    if: github.repository == 'lambfafa/light-audio-switch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify and publish the Windows package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SHA: 68d33d47ef5d2147453cb7cf89ac8153167dd243
+        run: |
+          set -euo pipefail
+          asset=LightAudioSwitch-win-x64.zip
+          curl --fail --silent --show-error --location "https://raw.githubusercontent.com/lambfafa/light-audio-switch/$RELEASE_SHA/downloads/$asset" --output "$asset"
+          echo '7b718eb7ed7c0a166633d2e015b978d1140762c2147acd1e408c199e49b1db0e  LightAudioSwitch-win-x64.zip' | sha256sum --check
+          cat > notes.md <<'RELEASE_NOTES'
+          ## v1.1.6
+          
+          轻音切换的 Windows x64 便携版。解压后运行 `LightAudioSwitch.exe`。从旧版升级时，先退出托盘里的旧版，再覆盖程序文件，保留原文件夹中的 `config.json`。
+          
+          - 更新程序、窗口、托盘和设置页的 Logo。
+          - 重做设置界面，统一设备选择、添加游戏、右键和托盘菜单的样式。
+          - 修复选择音源时的菜单异常。长设备列表支持滚轮、上下箭头和键盘操作。
+          - 「帮助」在程序内打开，包含首次设置、切换规则和常见问题。
+          
+          下载下方的 **LightAudioSwitch-win-x64.zip**。包内包含程序、运行配置、使用说明和 MIT 许可证。
+          RELEASE_NOTES
+          gh release create v1.1.6 "$asset" --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" --title "轻音切换 v1.1.6" --notes-file notes.md --latest
