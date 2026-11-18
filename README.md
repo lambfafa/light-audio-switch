@@ -6,6 +6,8 @@
 
 A lightweight Windows tray utility that switches the default audio output between your gaming headset and everyday speakers.
 
+![轻音切换设置界面，自动模式下正在使用音箱](docs/screenshot.png)
+
 ## 下载与使用
 
 [下载 Windows x64 便携版](https://github.com/lambfafa/light-audio-switch/releases/latest/download/LightAudioSwitch-win-x64.zip) · [版本记录](https://github.com/lambfafa/light-audio-switch/releases)
@@ -16,10 +18,6 @@ A lightweight Windows tray utility that switches the default audio output betwee
 4. 关闭设置窗口后，程序继续在托盘运行。双击托盘图标可打开设置，也可在设置里点击「帮助」查看切换规则和故障排查。
 
 需要蓝牙音箱时，请先通过 Windows 完成配对与连接。本程序管理已经可用的音频输出设备。
-
-## 界面截图
-
-![轻音切换设置界面，自动模式下正在使用音箱](docs/screenshot.png)
 
 ## 功能
 
