@@ -94,6 +94,17 @@ class UiVerify
     }
     static void ShowOffscreen(Form f)
     { f.ShowInTaskbar = false; f.StartPosition = FormStartPosition.Manual; f.Location = new Point(-30000, -30000); f.Show(); Application.DoEvents(); }
+
+    static void CheckCentered(SettingsForm form, string message)
+    {
+        Call(form, "ShowCentered");
+        Application.DoEvents();
+        Rectangle area = Screen.FromPoint(Cursor.Position).WorkingArea;
+        var bounds = form.Bounds;
+        bool centered = (bounds.Width > area.Width ? bounds.Left == area.Left : Math.Abs(bounds.Left - area.Left - (area.Right - bounds.Right)) <= 1)
+            && (bounds.Height > area.Height ? bounds.Top == area.Top : Math.Abs(bounds.Top - area.Top - (area.Bottom - bounds.Bottom)) <= 1);
+        Check(form.Visible && form.WindowState == FormWindowState.Normal && centered, message);
+    }
     static void CheckBounds(Control parent)
     {
         foreach(Control c in parent.Controls)
@@ -121,6 +132,11 @@ class UiVerify
                 string originalDefaults = String.Join("|", audio.GetDefaults());
                 using(var form = new SettingsForm(controller))
                 {
+                    form.ShowInTaskbar = false;
+                    CheckCentered(form, "settings opens centered after sizing");
+                    form.Location = new Point(form.Left + 50, form.Top + 50);
+                    form.WindowState = FormWindowState.Minimized;
+                    CheckCentered(form, "reopening restores and centers the settings window");
                     ShowOffscreen(form); CheckBounds(form);
                     var h = Field(form,"headset"); var s = Field(form,"speaker");
                     Check(((Control)h).AccessibleRole == AccessibleRole.ComboBox && ((Control)h).AccessibleName == "游戏输出设备", "device selector accessibility");

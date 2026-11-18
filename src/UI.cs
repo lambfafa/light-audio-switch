@@ -32,7 +32,7 @@ namespace LightAudioSwitch
             AutoScaleMode = AutoScaleMode.None;
             Font = Theme.Body; BackColor = Theme.Canvas; ForeColor = Theme.Ink;
             Text = "轻音切换"; MaximizeBox = false; FormBorderStyle = FormBorderStyle.FixedSingle;
-            StartPosition = FormStartPosition.CenterScreen;
+            StartPosition = FormStartPosition.Manual;
             Icon = Theme.AppIcon;
             using (var graphics = CreateGraphics()) scale = graphics.DpiX / 96;
             title = Label("轻音切换", Theme.Title, Theme.Ink);
@@ -92,6 +92,19 @@ namespace LightAudioSwitch
             FormClosed += delegate { controller.Changed -= UpdateStatus; tips.Dispose(); removeMenu.Dispose(); };
             AcceptButton = save;
         }
+
+        internal void ShowCentered()
+        {
+            // Measure the final window, including its frame, after layout and DPI scaling.
+            Rectangle area = Screen.FromPoint(Cursor.Position).WorkingArea;
+            WindowState = FormWindowState.Normal;
+            Location = new Point(
+                area.Left + Math.Max(0, (area.Width - Width) / 2),
+                area.Top + Math.Max(0, (area.Height - Height) / 2));
+            Show();
+            Activate();
+        }
+
         private int D(float n) { return (int)Math.Round(n * scale); }
         private Label Label(string text, Font font, Color color)
         { return new Label { Text = text, Font = font, ForeColor = color, BackColor = Color.Transparent, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft }; }

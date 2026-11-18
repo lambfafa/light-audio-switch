@@ -14,7 +14,7 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyDescription("游戏耳机 / 日常音箱自动切换")]
 [assembly: System.Reflection.AssemblyCompany("lambfafa")]
 [assembly: System.Reflection.AssemblyProduct("LightAudioSwitch")]
-[assembly: System.Reflection.AssemblyVersion("1.1.6.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.7.0")]
 [assembly: ComVisible(false)]
 
 namespace LightAudioSwitch
@@ -180,9 +180,8 @@ namespace LightAudioSwitch
             {
                 settings = new SettingsForm(controller);
                 settings.FormClosed += delegate { settings = null; };
-                settings.Show();
             }
-            else { settings.WindowState = FormWindowState.Normal; settings.Show(); settings.Activate(); }
+            settings.ShowCentered();
         }
         private void UpdateTray()
         {
