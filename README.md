@@ -17,6 +17,10 @@ A lightweight Windows tray utility that switches the default audio output betwee
 
 需要蓝牙音箱时，请先通过 Windows 完成配对与连接。本程序管理已经可用的音频输出设备。
 
+## 界面截图
+
+![轻音切换设置界面，自动模式下正在使用音箱](docs/screenshot.png)
+
 ## 功能
 
 - 任意已添加的游戏运行时切到耳机；全部退出后默认等待 3 秒切回音箱。
