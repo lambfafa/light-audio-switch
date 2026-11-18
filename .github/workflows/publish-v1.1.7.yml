@@ -1,0 +1,30 @@
+name: Publish Light Audio Switch v1.1.7
+on:
+  push:
+    branches: [codex/publish-v1.1.7]
+    paths: [.github/workflows/publish-v1.1.7.yml]
+permissions:
+  contents: write
+concurrency: publish-light-audio-switch-v1.1.7
+jobs:
+  release:
+    if: github.repository == 'lambfafa/light-audio-switch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Verify and publish the Windows package
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_SHA: bf438e9eeb4ff1e987e28bc62a11bdab56669601
+        run: |
+          set -euo pipefail
+          asset=LightAudioSwitch-win-x64.zip
+          curl --fail --silent --show-error --location "https://raw.githubusercontent.com/lambfafa/light-audio-switch/$RELEASE_SHA/downloads/$asset" --output "$asset"
+          echo '4eee43915f493a844aba2d9d81cb6d1d116ffc7222db1a2993463be789c32c07  LightAudioSwitch-win-x64.zip' | sha256sum --check
+          cat > notes.md <<'RELEASE_NOTES'
+          修复了设置窗口打开时偏到屏幕右下角的问题。首次启动、从托盘打开或再次双击程序时，窗口会在鼠标所在屏幕的可用区域居中。
+          
+          下载 `LightAudioSwitch-win-x64.zip`，解压后运行 `LightAudioSwitch.exe`。升级时请先退出托盘里的旧版，再将新包解压到原目录，保留原有的 `config.json`。
+          RELEASE_NOTES
+          gh release create v1.1.7 "$asset" --repo "$GITHUB_REPOSITORY" --target "$RELEASE_SHA" --title "轻音切换 v1.1.7" --notes-file notes.md --latest
