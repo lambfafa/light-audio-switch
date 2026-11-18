@@ -14,6 +14,7 @@ namespace LightAudioSwitch
         public string Status { get; private set; }
         public string CurrentOutput { get; private set; }
         public string RunningGame { get; private set; }
+        public string RoutingWarning { get; private set; }
         public event Action Changed;
         public event Action<string> Warning;
         private readonly string configPath;
@@ -52,6 +53,7 @@ namespace LightAudioSwitch
             failureCount = 0;
             dirty = true;
             lastWarning = null;
+            RoutingWarning = null;
             Tick();
         }
         public void ApplySettings(AppConfig config, bool startup)
@@ -71,6 +73,7 @@ namespace LightAudioSwitch
             retryAt = 0;
             failureCount = 0;
             lastWarning = null;
+            RoutingWarning = null;
             Tick();
         }
         public List<AudioDevice> RefreshDevices()
@@ -126,6 +129,7 @@ namespace LightAudioSwitch
                     failureCount = 0;
                     retryAt = 0;
                     lastWarning = null;
+                    RoutingWarning = null;
                 }
                 if (failureCount > 0) SetStatus(phase + "\n切换未成功，正在等待重试");
                 else SetStatus(phase + "\n" + device.Name);
@@ -151,6 +155,7 @@ namespace LightAudioSwitch
         }
         private void WarnOnce(string warning)
         {
+            RoutingWarning = warning;
             if (lastWarning == warning) return;
             lastWarning = warning;
             AppLog.Write(warning);

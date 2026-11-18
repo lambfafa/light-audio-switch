@@ -1,3 +1,5 @@
+<img src="docs/logo.svg" alt="轻音切换" width="96" height="96">
+
 # 轻音切换 · Light Audio Switch
 
 一个轻量的 Windows 托盘工具：游戏运行时使用耳机，所有游戏退出后自动切回日常音箱。
@@ -6,12 +8,12 @@ A lightweight Windows tray utility that switches the default audio output betwee
 
 ## 下载与使用
 
-[下载 Windows x64 便携版](https://github.com/lambfafa/light-audio-switch/raw/refs/heads/main/downloads/LightAudioSwitch-win-x64.zip)
+[下载 Windows x64 便携版](https://github.com/lambfafa/light-audio-switch/releases/latest/download/LightAudioSwitch-win-x64.zip) · [版本记录](https://github.com/lambfafa/light-audio-switch/releases)
 
 1. 解压到当前用户可写的文件夹，运行 `LightAudioSwitch.exe`。
-2. 首次运行，选择“游戏 → 耳机”和“日常 → 音箱”，点击“保存设置”。
+2. 首次运行，在「游戏耳机」和「日常音箱」卡片中分别选择设备，然后点击「保存」。
 3. 已预置《三角洲行动》的游戏进程名。其他游戏可从运行中的程序或 EXE 文件添加。
-4. 关闭设置窗口后仍会留在托盘运行；双击托盘图标重新打开设置。
+4. 关闭设置窗口后，程序继续在托盘运行。双击托盘图标可打开设置，也可在设置里点击「帮助」查看切换规则和故障排查。
 
 需要蓝牙音箱时，请先通过 Windows 完成配对与连接。本程序管理已经可用的音频输出设备。
 
@@ -47,6 +49,7 @@ C#、WinForms、Windows Core Audio 与系统自带 .NET Framework；无第三方
 
 ```powershell
 .\test.ps1
+.\test-ui.ps1
 ```
 
 可选硬件集成测试会临时切换声音输出并恢复原来的三个默认输出角色。请先退出正在运行的轻音切换，以免实例互相干扰。提供能唯一匹配的两个已连接设备名称：

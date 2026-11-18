@@ -14,7 +14,7 @@ using System.Windows.Forms;
 [assembly: System.Reflection.AssemblyDescription("游戏耳机 / 日常音箱自动切换")]
 [assembly: System.Reflection.AssemblyCompany("lambfafa")]
 [assembly: System.Reflection.AssemblyProduct("LightAudioSwitch")]
-[assembly: System.Reflection.AssemblyVersion("1.0.0.0")]
+[assembly: System.Reflection.AssemblyVersion("1.1.6.0")]
 [assembly: ComVisible(false)]
 
 namespace LightAudioSwitch
@@ -124,8 +124,7 @@ namespace LightAudioSwitch
     {
         private readonly SwitchController controller;
         private readonly NotifyIcon tray;
-        private readonly Icon icon;
-        private readonly ContextMenuStrip menu;
+        private readonly PopupMenu menu;
         private readonly ToolStripMenuItem auto, headset, speaker, summary;
         private readonly System.Windows.Forms.Timer timer;
         private readonly Control dispatcher = new Control();
@@ -137,19 +136,17 @@ namespace LightAudioSwitch
         {
             this.controller = controller;
             IntPtr ignored = dispatcher.Handle;
-            menu = new ContextMenuStrip { Font = new Font("Microsoft YaHei UI", 9F) };
-            summary = new ToolStripMenuItem("轻音切换") { Enabled = false };
-            menu.Items.Add(summary);
+            menu = new PopupMenu("轻音切换");
+            summary = menu.AddOption("轻音切换");
+            summary.Enabled = false;
             menu.Items.Add(new ToolStripSeparator());
-            auto = new ToolStripMenuItem("自动切换", null, delegate { controller.SetMode(OutputMode.Auto); });
-            headset = new ToolStripMenuItem("锁定耳机", null, delegate { controller.SetMode(OutputMode.Headset); });
-            speaker = new ToolStripMenuItem("锁定小爱音箱", null, delegate { controller.SetMode(OutputMode.Speaker); });
-            menu.Items.Add(auto); menu.Items.Add(headset); menu.Items.Add(speaker);
+            auto = menu.AddOption("自动切换", delegate { controller.SetMode(OutputMode.Auto); });
+            headset = menu.AddOption("锁定耳机", delegate { controller.SetMode(OutputMode.Headset); });
+            speaker = menu.AddOption("锁定小爱音箱", delegate { controller.SetMode(OutputMode.Speaker); });
             menu.Items.Add(new ToolStripSeparator());
-            menu.Items.Add(new ToolStripMenuItem("设置…", null, delegate { ShowSettings(); }));
-            menu.Items.Add(new ToolStripMenuItem("退出", null, delegate { ExitThread(); }));
-            icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-            tray = new NotifyIcon { Icon = icon, Text = "轻音切换", ContextMenuStrip = menu, Visible = true };
+            menu.AddOption("设置…", delegate { ShowSettings(); });
+            menu.AddOption("退出", delegate { ExitThread(); });
+            tray = new NotifyIcon { Icon = Theme.AppIcon, Text = "轻音切换", ContextMenuStrip = menu, Visible = true };
             tray.DoubleClick += delegate { ShowSettings(); };
             controller.Changed += UpdateTray;
             controller.Warning += Warn;
@@ -214,7 +211,7 @@ namespace LightAudioSwitch
                 foreach (var wait in waits) wait.Unregister(null);
                 foreach (var handle in events) handle.Dispose();
                 if (settings != null) settings.Close();
-                tray.Visible = false; tray.Dispose(); icon.Dispose(); menu.Dispose(); dispatcher.Dispose();
+                tray.Visible = false; tray.Dispose(); menu.Dispose(); dispatcher.Dispose();
             }
             base.Dispose(disposingManaged);
         }

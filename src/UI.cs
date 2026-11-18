@@ -2,318 +2,319 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace LightAudioSwitch
 {
-    internal static class Theme
-    {
-        public static readonly Color Blue = Color.FromArgb(40, 91, 215);
-        public static readonly Color Ink = Color.FromArgb(28, 40, 62);
-        public static readonly Color Muted = Color.FromArgb(92, 105, 125);
-        public static Button Button(string text, EventHandler action, bool primary)
-        {
-            var b = new Button { Text = text, AutoSize = true, Height = 32, MinimumSize = new Size(96, 32),
-                Padding = new Padding(8, 2, 8, 2), FlatStyle = FlatStyle.Flat, Cursor = Cursors.Hand,
-                BackColor = primary ? Blue : Color.White, ForeColor = primary ? Color.White : Ink,
-                Margin = new Padding(0, 0, 8, 0), UseVisualStyleBackColor = false };
-            b.FlatAppearance.BorderColor = primary ? Blue : Color.FromArgb(207, 215, 229);
-            b.Click += action;
-            return b;
-        }
-        public static Label Label(string text) { return new Label { Text = text, AutoSize = true, ForeColor = Ink, Margin = new Padding(0, 6, 0, 6) }; }
-    }
-
     public sealed class SettingsForm : Form
     {
         private readonly SwitchController controller;
-        private readonly ComboBox headset = new ComboBox(), speaker = new ComboBox();
-        private readonly ListBox games = new ListBox();
-        private readonly NumericUpDown delay = new NumericUpDown();
-        private readonly CheckBox startup = new CheckBox(), communications = new CheckBox();
-        private readonly Label status = new Label(), current = new Label();
+        private readonly DeviceCard headset = new DeviceCard(true), speaker = new DeviceCard(false);
+        private readonly GameList games = new GameList();
         private readonly List<GameRule> rules = new List<GameRule>();
+        private readonly ModeControl modes = new ModeControl();
+        private readonly Toggle startup = new Toggle(), communications = new Toggle();
+        private readonly DelayStepper delay = new DelayStepper();
+        private readonly Label title, headline, context, gamesTitle, emptyGames, delayLabel, startupLabel, communicationsLabel, feedback;
+        private readonly QuietButton add, refresh, help, save;
+        private readonly Surface gameSurface = new Surface(), preferences = new Surface();
+        private readonly Panel settingsPage = new Panel { Dock = DockStyle.Fill };
+        private readonly Panel brand = new Panel();
         private readonly ToolTip tips = new ToolTip();
+        private HelpPage helpPage;
+        private float scale = 1;
+        private bool building = true;
+
         public SettingsForm(SwitchController controller)
         {
             this.controller = controller;
-            Text = "轻音切换 · 设置";
-            Font = new Font("Microsoft YaHei UI", 9F);
-            ForeColor = Theme.Ink;
-            BackColor = Color.FromArgb(246, 248, 252);
-            AutoScaleMode = AutoScaleMode.Dpi;
-            ClientSize = new Size(730, 690);
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
+            AutoScaleMode = AutoScaleMode.None;
+            Font = Theme.Body; BackColor = Theme.Canvas; ForeColor = Theme.Ink;
+            Text = "轻音切换"; MaximizeBox = false; FormBorderStyle = FormBorderStyle.FixedSingle;
             StartPosition = FormStartPosition.CenterScreen;
-            Icon = Icon.ExtractAssociatedIcon(Application.ExecutablePath);
-
-            var root = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(24, 14, 24, 14),
-                ColumnCount = 1, RowCount = 7, BackColor = BackColor };
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 64));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 116));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 128));
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 91));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 30));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 43));
-            Controls.Add(root);
-
-            var heading = new Panel { Dock = DockStyle.Fill, Margin = Padding.Empty };
-            heading.Controls.Add(new Label { Text = "轻音切换", Font = new Font(Font.FontFamily, 21F, FontStyle.Bold),
-                ForeColor = Theme.Ink, AutoSize = true, Location = new Point(0, 0) });
-            heading.Controls.Add(new Label { Text = "游戏戴耳机，日常听音箱。", ForeColor = Theme.Muted,
-                AutoSize = true, Location = new Point(2, 43) });
-            root.Controls.Add(heading, 0, 0);
-
-            var state = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 2,
-                BackColor = Color.FromArgb(231, 238, 253), Padding = new Padding(12, 7, 12, 7), Margin = new Padding(0, 4, 0, 10) };
-            state.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            state.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            status.Dock = DockStyle.Fill;
-            status.Font = new Font(Font.FontFamily, 9F, FontStyle.Bold);
-            status.ForeColor = Theme.Blue;
-            status.AutoEllipsis = true;
-            status.TextAlign = ContentAlignment.MiddleLeft;
-            state.Controls.Add(status, 0, 0);
-            var modes = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
-            modes.Controls.Add(Theme.Button("自动切换", delegate { controller.SetMode(OutputMode.Auto); }, true));
-            modes.Controls.Add(Theme.Button("锁定耳机", delegate { controller.SetMode(OutputMode.Headset); }, false));
-            modes.Controls.Add(Theme.Button("锁定音箱", delegate { controller.SetMode(OutputMode.Speaker); }, false));
-            state.Controls.Add(modes, 0, 1);
-            root.Controls.Add(state, 0, 1);
-
-            var deviceBox = new GroupBox { Text = "输出设备", Dock = DockStyle.Fill, Padding = new Padding(10), Margin = new Padding(0, 0, 0, 9) };
-            var deviceTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 3, RowCount = 3 };
-            deviceTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 100));
-            deviceTable.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            deviceTable.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 82));
-            deviceTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 31));
-            deviceTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 31));
-            deviceTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            deviceTable.Controls.Add(Theme.Label("游戏 → 耳机"), 0, 0);
-            deviceTable.Controls.Add(Theme.Label("日常 → 音箱"), 0, 1);
-            foreach (ComboBox combo in new[] { headset, speaker })
-            {
-                combo.DropDownStyle = ComboBoxStyle.DropDownList;
-                combo.Dock = DockStyle.Fill;
-                combo.DropDownWidth = 570;
-                combo.Margin = new Padding(0, 2, 6, 2);
-            }
-            deviceTable.Controls.Add(headset, 1, 0);
-            deviceTable.Controls.Add(speaker, 1, 1);
-            var refresh = Theme.Button("刷新", delegate {
-                try { FillDevices(controller.RefreshDevices(), SelectedId(headset), SelectedId(speaker)); }
-                catch (Exception ex) { ShowError(ex); }
-            }, false);
-            refresh.MinimumSize = new Size(66, 28);
-            refresh.Padding = Padding.Empty;
-            refresh.Dock = DockStyle.Fill;
-            deviceTable.Controls.Add(refresh, 2, 0);
-            var hint = new Label { Text = "设备选择在保存后生效；重新配对后请刷新并重新选择。", Dock = DockStyle.Fill,
-                ForeColor = Theme.Muted, TextAlign = ContentAlignment.MiddleLeft, AutoEllipsis = true };
-            deviceTable.Controls.Add(hint, 0, 2);
-            deviceTable.SetColumnSpan(hint, 3);
-            deviceBox.Controls.Add(deviceTable);
-            root.Controls.Add(deviceBox, 0, 2);
-
-            var gameBox = new GroupBox { Text = "游戏识别 · 任意一款运行期间保持耳机", Dock = DockStyle.Fill,
-                Padding = new Padding(10, 7, 10, 8), Margin = new Padding(0, 0, 0, 8) };
-            var gameTable = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3 };
-            gameTable.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            gameTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 29));
-            gameTable.RowStyles.Add(new RowStyle(SizeType.Absolute, 34));
-            games.Dock = DockStyle.Fill;
-            games.HorizontalScrollbar = true;
-            games.IntegralHeight = false;
-            games.BorderStyle = BorderStyle.FixedSingle;
-            var pathLabel = new Label { Dock = DockStyle.Fill, ForeColor = Theme.Muted,
-                AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft, Text = "预置《三角洲行动》；WeGame 常驻不会触发。" };
-            games.SelectedIndexChanged += delegate {
-                var g = games.SelectedItem as GameRule;
-                pathLabel.Text = g == null ? "请选择游戏本体，不要添加启动器。" : g.FullPath ?? g.Executable;
-                tips.SetToolTip(pathLabel, pathLabel.Text);
+            Icon = Theme.AppIcon;
+            using (var graphics = CreateGraphics()) scale = graphics.DpiX / 96;
+            title = Label("轻音切换", Theme.Title, Theme.Ink);
+            headline = Label("正在读取输出", Theme.Display, Theme.Ink);
+            context = Label("", Theme.Small, Theme.Muted);
+            gamesTitle = Label("游戏", Theme.Body, Theme.Ink);
+            emptyGames = Label("还没有添加游戏", Theme.Body, Theme.Muted);
+            emptyGames.TextAlign = ContentAlignment.MiddleCenter;
+            delayLabel = Label("切回音箱的延迟", Theme.Body, Theme.Ink);
+            startupLabel = Label("登录时启动", Theme.Body, Theme.Ink);
+            communicationsLabel = Label("语音输出跟随", Theme.Body, Theme.Ink);
+            feedback = Label("", Theme.Small, Theme.Muted); feedback.TextAlign = ContentAlignment.MiddleRight;
+            add = Button("＋ 添加", delegate { ShowAddMenu(); }, false);
+            refresh = Button("刷新设备", delegate { RefreshDevices(); }, false);
+            help = Button("帮助", delegate { OpenHelp(); }, false);
+            save = Button("保存", delegate { SaveSettings(); }, true); save.Name = "SaveSettings";
+            headset.Name = "HeadsetDevice"; speaker.Name = "SpeakerDevice";
+            startup.Name = "Startup"; communications.Name = "Communications";
+            startup.AccessibleName = "登录时启动"; communications.AccessibleName = "语音输出跟随";
+            tips.SetToolTip(communications, "同时切换默认通信输出；麦克风不变");
+            tips.SetToolTip(delay, "所有游戏退出后的等待时间，0～30 秒");
+            tips.SetToolTip(refresh, "重新读取音频设备；重新配对后可在卡片中选择");
+            brand.Paint += delegate(object sender, PaintEventArgs e) {
+                e.Graphics.DrawIcon(Theme.AppIcon, brand.ClientRectangle);
             };
-            var gameActions = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
-            gameActions.Controls.Add(Theme.Button("从运行程序添加", delegate { AddRunning(); }, false));
-            gameActions.Controls.Add(Theme.Button("选择游戏 EXE", delegate { AddFile(); }, false));
-            gameActions.Controls.Add(Theme.Button("删除", delegate {
-                if (games.SelectedIndex >= 0) { rules.RemoveAt(games.SelectedIndex); FillGames(); }
-            }, false));
-            gameTable.Controls.Add(games, 0, 0);
-            gameTable.Controls.Add(pathLabel, 0, 1);
-            gameTable.Controls.Add(gameActions, 0, 2);
-            gameBox.Controls.Add(gameTable);
-            root.Controls.Add(gameBox, 0, 3);
-
-            var preferences = new TableLayoutPanel { Dock = DockStyle.Fill, ColumnCount = 1, RowCount = 3, Margin = Padding.Empty };
-            preferences.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
-            preferences.RowStyles.Add(new RowStyle(SizeType.Absolute, 31));
-            preferences.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
-            preferences.RowStyles.Add(new RowStyle(SizeType.Absolute, 27));
-            var delayRow = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = Padding.Empty };
-            delayRow.Controls.Add(Theme.Label("所有游戏退出后，等待"));
-            delay.Minimum = 0; delay.Maximum = 30; delay.Width = 55; delay.Value = controller.Config.ExitDelaySeconds;
-            delay.Margin = new Padding(6, 3, 6, 0);
-            delayRow.Controls.Add(delay);
-            delayRow.Controls.Add(Theme.Label("秒切回音箱；临时切桌面保持耳机。"));
-            startup.Text = "登录 Windows 后自动启动（后台运行）";
-            startup.AutoSize = true;
-            startup.Checked = StartupRegistration.IsEnabled();
-            communications.Text = "同时切换默认通信输出（语音聊天）；麦克风不变";
-            communications.AutoSize = true;
-            communications.Checked = controller.Config.SwitchCommunications;
-            preferences.Controls.Add(delayRow, 0, 0);
-            preferences.Controls.Add(startup, 0, 1);
-            preferences.Controls.Add(communications, 0, 2);
-            root.Controls.Add(preferences, 0, 4);
-            current.Dock = DockStyle.Fill;
-            current.ForeColor = Theme.Muted;
-            current.AutoEllipsis = true;
-            current.TextAlign = ContentAlignment.MiddleLeft;
-            root.Controls.Add(current, 0, 5);
-
-            var footer = new FlowLayoutPanel { Dock = DockStyle.Fill, WrapContents = false, Margin = new Padding(0, 7, 0, 0) };
-            footer.Controls.Add(Theme.Button("保存设置", delegate { SaveSettings(); }, true));
-            footer.Controls.Add(Theme.Button("关闭到托盘", delegate { Close(); }, false));
-            footer.Controls.Add(Theme.Button("使用说明", delegate {
-                try { System.Diagnostics.Process.Start(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "使用说明.txt")); }
-                catch (Exception ex) { ShowError(ex); }
-            }, false));
-            root.Controls.Add(footer, 0, 6);
-
-            foreach (var g in controller.Config.Games)
-                rules.Add(new GameRule { Name = g.Name, Executable = g.Executable, FullPath = g.FullPath });
-            FillDevices(controller.Devices, controller.Config.HeadsetId, controller.Config.SpeakerId);
-            FillGames();
-            UpdateStatus();
-            controller.Changed += UpdateStatus;
-            FormClosed += delegate { controller.Changed -= UpdateStatus; tips.Dispose(); };
+            Controls.Add(settingsPage);
+            foreach (Control c in new Control[] { brand, title, modes, headline, context, headset, speaker, gamesTitle, add,
+                gameSurface, preferences, refresh, help, feedback, save }) settingsPage.Controls.Add(c);
+            gameSurface.Controls.Add(games); gameSurface.Controls.Add(emptyGames);
+            foreach (Control c in new Control[] { delayLabel, delay, startupLabel, startup, communicationsLabel, communications }) preferences.Controls.Add(c);
+            preferences.Paint += delegate(object sender, PaintEventArgs e) {
+                using (var pen = new Pen(Theme.Line, 1)) {
+                    e.Graphics.DrawLine(pen, D(20), D(50), preferences.Width - D(20), D(50));
+                    e.Graphics.DrawLine(pen, D(20), D(100), preferences.Width - D(20), D(100));
+                }
+            };
+            games.RemoveRequested += delegate(int index) {
+                if (index >= 0 && index < rules.Count) { rules.RemoveAt(index); FillGames(); MarkDirty(); }
+            };
+            var removeMenu = new PopupMenu("游戏操作");
+            var remove = removeMenu.AddOption("移除游戏", delegate {
+                if (games.SelectedIndex >= 0) { rules.RemoveAt(games.SelectedIndex); FillGames(); MarkDirty(); }
+            });
+            removeMenu.Opening += delegate { remove.Enabled = games.SelectedIndex >= 0; };
+            games.ContextMenuStrip = removeMenu;
+            modes.ModeRequested += delegate(OutputMode mode) { controller.SetMode(mode); UpdateStatus(); };
+            headset.SelectionChanged += delegate { MarkDirty(); UpdateStatus(); };
+            speaker.SelectionChanged += delegate { MarkDirty(); UpdateStatus(); };
+            startup.CheckedChanged += delegate { MarkDirty(); };
+            communications.CheckedChanged += delegate { MarkDirty(); }; delay.ValueChanged += delegate { MarkDirty(); };
+            foreach (var g in controller.Config.Games) rules.Add(new GameRule { Name = g.Name, Executable = g.Executable, FullPath = g.FullPath });
+            FillDevices(controller.Devices, controller.Config.HeadsetId, controller.Config.HeadsetName, controller.Config.SpeakerId, controller.Config.SpeakerName);
+            startup.Checked = StartupRegistration.IsEnabled(); communications.Checked = controller.Config.SwitchCommunications;
+            delay.Value = controller.Config.ExitDelaySeconds; FillGames();
+            ClientSize = new Size(D(744), D(700 + (rules.Count > 1 ? 54 : 0)));
+            building = false; PerformLayout(); UpdateStatus(); controller.Changed += UpdateStatus;
+            FormClosed += delegate { controller.Changed -= UpdateStatus; tips.Dispose(); removeMenu.Dispose(); };
+            AcceptButton = save;
         }
-        private string SelectedId(ComboBox box) { var d = box.SelectedItem as AudioDevice; return d == null ? null : d.Id; }
-        private void FillDevices(List<AudioDevice> devices, string h, string s)
+        private int D(float n) { return (int)Math.Round(n * scale); }
+        private Label Label(string text, Font font, Color color)
+        { return new Label { Text = text, Font = font, ForeColor = color, BackColor = Color.Transparent, AutoEllipsis = true, TextAlign = ContentAlignment.MiddleLeft }; }
+        private QuietButton Button(string text, EventHandler handler, bool primary)
         {
-            FillCombo(headset, devices, h, controller.Config.HeadsetName);
-            FillCombo(speaker, devices, s, controller.Config.SpeakerName);
+            var b = new QuietButton { Text = text, Primary = primary };
+            b.Click += handler; return b;
         }
-        private static void FillCombo(ComboBox box, List<AudioDevice> devices, string selected, string savedName)
+        private void Place(Control c, int x, int y, int w, int h) { c.SetBounds(D(x), D(y), D(w), D(h)); }
+        protected override void OnLayout(LayoutEventArgs e)
         {
-            box.BeginUpdate();
-            box.Items.Clear();
-            box.Items.Add(new AudioDevice { Name = "请选择输出设备", Id = null, State = 1 });
-            int index = 0;
-            foreach (var d in devices)
-            {
-                int i = box.Items.Add(d);
-                if (d.Id == selected) index = i;
-            }
-            if (index == 0 && !String.IsNullOrEmpty(selected))
-                index = box.Items.Add(new AudioDevice { Id = selected, Name = savedName ?? "原设备", State = 0 });
-            box.SelectedIndex = index;
-            box.EndUpdate();
+            base.OnLayout(e); if (building || title == null) return;
+            int extra = rules.Count > 1 ? 54 : 0;
+            Place(brand, 32, 26, 32, 32); Place(title, 75, 22, 220, 40); Place(modes, 488, 25, 224, 36);
+            Place(headline, 32, 94, 680, 46); Place(context, 34, 143, 676, 23);
+            Place(headset, 32, 184, 332, 116); Place(speaker, 380, 184, 332, 116);
+            Place(gamesTitle, 34, 328, 200, 28); Place(add, 620, 324, 92, 32);
+            Place(gameSurface, 32, 366, 680, 72 + extra); Place(games, 10, 9, 660, 54 + extra); Place(emptyGames, 10, 10, 660, 52);
+            games.Height = games.ItemHeight * (extra > 0 ? 2 : 1);
+            Place(preferences, 32, 460 + extra, 680, 150);
+            Place(delayLabel, 20, 0, 400, 50); Place(delay, 556, 9, 104, 32);
+            Place(startupLabel, 20, 50, 400, 50); Place(startup, 610, 60, 50, 30);
+            Place(communicationsLabel, 20, 100, 400, 50); Place(communications, 610, 110, 50, 30);
+            Place(refresh, 26, 636 + extra, 90, 34); Place(help, 128, 636 + extra, 56, 34);
+            Place(feedback, 216, 636 + extra, 374, 34); Place(save, 608, 634 + extra, 104, 38);
+        }
+        private static string Id(DeviceCard card) { return card.SelectedDevice == null ? null : card.SelectedDevice.Id; }
+        private void FillDevices(List<AudioDevice> devices, string h, string hn, string s, string sn)
+        { headset.Devices = speaker.Devices = devices; headset.Choose(h, hn); speaker.Choose(s, sn); }
+        private void RefreshDevices()
+        {
+            try {
+                var h = headset.SelectedDevice; var s = speaker.SelectedDevice;
+                FillDevices(controller.RefreshDevices(), Id(headset), h == null ? null : h.Name, Id(speaker), s == null ? null : s.Name); UpdateStatus();
+            } catch (Exception ex) { Error(ex.Message); }
         }
         private void FillGames()
         {
-            games.BeginUpdate(); games.Items.Clear();
-            foreach (var g in rules) games.Items.Add(g);
-            games.EndUpdate();
+            games.BeginUpdate(); games.Items.Clear(); foreach (var g in rules) games.Items.Add(g); games.EndUpdate();
+            games.Visible = rules.Count > 0; emptyGames.Visible = rules.Count == 0;
+            if (!building) { ClientSize = new Size(D(744), D(700 + (rules.Count > 1 ? 54 : 0))); PerformLayout(); }
         }
+        private PopupMenu addMenu;
+        private void ShowAddMenu()
+        {
+            if (addMenu == null) {
+                addMenu = new PopupMenu("添加游戏");
+                addMenu.AddOption("从运行程序添加…", delegate { AddRunning(); });
+                addMenu.AddOption("选择游戏 EXE…", delegate { AddFile(); });
+            }
+            addMenu.ShowFor(add, alignRight: true);
+        }
+        protected override void Dispose(bool disposing)
+        { if (disposing && addMenu != null) { addMenu.Dispose(); addMenu = null; } base.Dispose(disposing); }
         private void AddRule(string path, string exe)
         {
-            if (AppConfig.IsLauncher(exe)) { MessageBox.Show(this, "请添加游戏本体，不要选择 WeGame、浏览器或反作弊程序。", "选择游戏", MessageBoxButtons.OK, MessageBoxIcon.Information); return; }
+            if (AppConfig.IsLauncher(exe)) { Error("请选择游戏本体"); return; }
             if (rules.Exists(delegate(GameRule g) { return String.Equals(g.Executable, exe, StringComparison.OrdinalIgnoreCase)
                 && String.Equals(g.FullPath ?? "", path ?? "", StringComparison.OrdinalIgnoreCase); })) return;
             rules.Add(new GameRule { Name = Path.GetFileNameWithoutExtension(exe), Executable = exe, FullPath = path });
-            FillGames(); games.SelectedIndex = games.Items.Count - 1;
+            FillGames(); games.SelectedIndex = games.Items.Count - 1; MarkDirty();
         }
         private void AddFile()
         {
-            using (var dialog = new OpenFileDialog { Title = "选择游戏本体（不是 WeGame 启动器）", Filter = "程序 (*.exe)|*.exe", CheckFileExists = true })
-                if (dialog.ShowDialog(this) == DialogResult.OK) AddRule(dialog.FileName, Path.GetFileName(dialog.FileName));
+            using (var d = new OpenFileDialog { Title = "选择游戏本体", Filter = "程序 (*.exe)|*.exe", CheckFileExists = true })
+                if (d.ShowDialog(this) == DialogResult.OK) AddRule(d.FileName, Path.GetFileName(d.FileName));
         }
         private void AddRunning()
         {
-            try
-            {
-                using (var picker = new ProcessPicker())
-                    if (picker.ShowDialog(this) == DialogResult.OK && picker.Selected != null)
-                        AddRule(ProcessScanner.TryGetPath(picker.Selected.Id), picker.Selected.Name);
-            }
-            catch (Exception ex) { ShowError(ex); }
+            try { using (var p = new ProcessPicker()) if (p.ShowDialog(this) == DialogResult.OK && p.Selected != null)
+                AddRule(ProcessScanner.TryGetPath(p.Selected.Id), p.Selected.Name); } catch (Exception ex) { Error(ex.Message); }
         }
+        private void OpenHelp()
+        {
+            if (helpPage == null)
+            {
+                helpPage = new HelpPage(scale);
+                helpPage.BackRequested += delegate { ReturnToSettings(); };
+                Controls.Add(helpPage);
+            }
+            AcceptButton = null;
+            settingsPage.Hide();
+            helpPage.Show();
+            helpPage.BringToFront();
+            helpPage.FocusBack();
+        }
+
+        private void ReturnToSettings()
+        {
+            helpPage.Hide();
+            settingsPage.Show();
+            AcceptButton = save;
+            help.Focus();
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (helpPage != null && helpPage.Visible)
+            {
+                if (keyData == Keys.Escape) { ReturnToSettings(); return true; }
+                if (helpPage.ScrollByKey(keyData)) return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
+        }
+        private void MarkDirty() { if (!building) { feedback.Text = "未保存"; feedback.ForeColor = Theme.Muted; } }
         private void SaveSettings()
         {
-            try
-            {
-                var h = headset.SelectedItem as AudioDevice;
-                var s = speaker.SelectedItem as AudioDevice;
-                if (h == null || String.IsNullOrEmpty(h.Id) || s == null || String.IsNullOrEmpty(s.Id))
-                    throw new InvalidOperationException("请先选择耳机和日常音箱。");
+            try {
+                if (String.IsNullOrEmpty(Id(headset)) || String.IsNullOrEmpty(Id(speaker))) {
+                    Error("请选择耳机和音箱"); (String.IsNullOrEmpty(Id(headset)) ? headset : speaker).Focus(); return;
+                }
                 var c = controller.Config.Copy();
-                c.HeadsetId = h.Id; c.HeadsetName = h.Name;
-                c.SpeakerId = s.Id; c.SpeakerName = s.Name;
-                c.ExitDelaySeconds = (int)delay.Value;
-                c.SwitchCommunications = communications.Checked;
-                c.Games = new List<GameRule>(rules);
-                controller.ApplySettings(c, startup.Checked);
-                MessageBox.Show(this, "设置已保存。关闭窗口后，程序仍会在托盘中自动运行。", "轻音切换", MessageBoxButtons.OK, MessageBoxIcon.Information);
-            }
-            catch (Exception ex) { ShowError(ex); }
+                c.HeadsetId = Id(headset); c.HeadsetName = headset.SelectedDevice.Name;
+                c.SpeakerId = Id(speaker); c.SpeakerName = speaker.SelectedDevice.Name;
+                c.ExitDelaySeconds = delay.Value; c.SwitchCommunications = communications.Checked; c.Games = new List<GameRule>(rules);
+                controller.ApplySettings(c, startup.Checked); feedback.ForeColor = Theme.Muted; feedback.Text = "已保存";
+            } catch (Exception ex) { Error(ex.Message); }
         }
+        private void Error(string message) { feedback.ForeColor = Theme.Error; feedback.Text = message; tips.SetToolTip(feedback, message); }
         private void UpdateStatus()
         {
-            status.Text = controller.Status ?? "正在检查音频设备…";
-            current.Text = "当前输出：" + (controller.CurrentOutput ?? "正在读取…");
-            tips.SetToolTip(current, current.Text);
+            if (IsDisposed) return;
+            modes.SetMode(controller.Policy.Mode); string actual = null;
+            try { actual = controller.Audio.GetDefault(1); } catch (COMException) { }
+            headset.IsCurrent = actual != null && actual == Id(headset); speaker.IsCurrent = actual != null && actual == Id(speaker);
+            headset.Invalidate(); speaker.Invalidate();
+            headline.Text = headset.IsCurrent ? "正在使用耳机" : speaker.IsCurrent ? "正在使用音箱" : "系统默认输出";
+            var device = controller.Devices.Find(delegate(AudioDevice d) { return d.Id == actual; });
+            context.ForeColor = Theme.Muted;
+            context.Text = headset.IsCurrent || speaker.IsCurrent ? controller.RunningGame ?? "" : device == null ? "请选择输出设备" : Theme.DeviceName(device.Name);
+            if (controller.Policy.RemainingSeconds > 0) context.Text = controller.Policy.RemainingSeconds + " 秒后切回音箱";
+            bool h = controller.Policy.Mode == OutputMode.Headset || (controller.Policy.Mode == OutputMode.Auto && (controller.RunningGame != null || controller.Policy.RemainingSeconds > 0));
+            string targetId = h ? controller.Config.HeadsetId : controller.Config.SpeakerId;
+            var target = controller.Devices.Find(delegate(AudioDevice d) { return d.Id == targetId; });
+            if (String.IsNullOrEmpty(Id(headset)) && String.IsNullOrEmpty(Id(speaker))) {
+                headline.Text = "选择输出设备"; context.Text = "";
+            }
+            else if (target == null || !target.Active) {
+                context.Text = String.IsNullOrEmpty(targetId) ? (h ? "请选择游戏耳机" : "请选择日常音箱") : (h ? "耳机未连接" : "音箱未连接"); context.ForeColor = Theme.Error;
+            }
+            else if (!String.IsNullOrEmpty(controller.RoutingWarning)) {
+                context.Text = "切换暂未完成"; context.ForeColor = Theme.Error;
+                tips.SetToolTip(context, controller.RoutingWarning);
+            }
+            tips.SetToolTip(headset, headset.SelectedDevice == null ? "选择游戏输出设备" : headset.SelectedDevice.Name);
+            tips.SetToolTip(speaker, speaker.SelectedDevice == null ? "选择日常输出设备" : speaker.SelectedDevice.Name);
         }
-        private void ShowError(Exception ex) { MessageBox.Show(this, ex.Message, "操作未完成", MessageBoxButtons.OK, MessageBoxIcon.Warning); }
+    }
+
+    internal sealed class DelayStepper : Surface
+    {
+        private readonly QuietButton minus = new QuietButton(), plus = new QuietButton();
+        private readonly Label number = new Label();
+        private int value;
+        public event Action ValueChanged;
+        public int Value {
+            get { return value; }
+            set { int n = Math.Max(0, Math.Min(30, value)); if (this.value == n) return;
+                this.value = n; RefreshValue(); if (ValueChanged != null) ValueChanged(); }
+        }
+        public DelayStepper()
+        {
+            BackColor = Theme.Canvas; Radius = 9; AccessibleRole = AccessibleRole.SpinButton; AccessibleName = "切回音箱的延迟";
+            minus.Text = "−"; minus.AccessibleName = "减少延迟"; plus.Text = "＋"; plus.AccessibleName = "增加延迟";
+            foreach (var b in new[] { minus, plus }) { b.Segment = true; Controls.Add(b); }
+            number.TextAlign = ContentAlignment.MiddleCenter; number.Font = Theme.Small; number.ForeColor = Theme.Ink; number.BackColor = Color.Transparent;
+            Controls.Add(number); minus.Click += delegate { Value--; }; plus.Click += delegate { Value++; }; RefreshValue();
+        }
+        private void RefreshValue() { number.Text = value + " 秒"; minus.Enabled = value > 0; plus.Enabled = value < 30; }
+        protected override void OnLayout(LayoutEventArgs e) {
+            base.OnLayout(e); if (minus == null) return; int w = (int)Math.Round(Width * 0.28);
+            minus.SetBounds(0, 0, w, Height); plus.SetBounds(Width - w, 0, w, Height); number.SetBounds(w, 0, Width - w * 2, Height);
+        }
     }
 
     internal sealed class ProcessPicker : Form
     {
         private readonly ListBox list = new ListBox();
         private readonly TextBox search = new TextBox();
-        private List<ProcessEntry> entries;
+        private List<ProcessEntry> entries = new List<ProcessEntry>();
+        private readonly QuietButton add;
         public ProcessEntry Selected { get { return list.SelectedItem as ProcessEntry; } }
         public ProcessPicker()
         {
-            Text = "选择正在运行的游戏本体";
-            Font = new Font("Microsoft YaHei UI", 9F);
-            ClientSize = new Size(580, 420);
-            StartPosition = FormStartPosition.CenterParent;
-            MinimizeBox = false; MaximizeBox = false; ShowInTaskbar = false;
-            var layout = new TableLayoutPanel { Dock = DockStyle.Fill, Padding = new Padding(14), ColumnCount = 1, RowCount = 4 };
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 32));
-            layout.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            layout.RowStyles.Add(new RowStyle(SizeType.Absolute, 40));
-            layout.Controls.Add(Theme.Label("搜索程序名；请在启动游戏后添加，避开启动器与反作弊程序。"), 0, 0);
-            search.Dock = DockStyle.Fill;
-            layout.Controls.Add(search, 0, 1);
-            list.Dock = DockStyle.Fill; list.HorizontalScrollbar = true; list.IntegralHeight = false;
-            layout.Controls.Add(list, 0, 2);
-            var actions = new FlowLayoutPanel { Dock = DockStyle.Fill, Margin = new Padding(0, 7, 0, 0) };
-            actions.Controls.Add(Theme.Button("添加选中程序", delegate { if (Selected != null) { DialogResult = DialogResult.OK; Close(); } }, true));
-            actions.Controls.Add(Theme.Button("刷新", delegate { LoadEntries(); }, false));
-            layout.Controls.Add(actions, 0, 3);
-            Controls.Add(layout);
-            search.TextChanged += delegate { Filter(); };
-            list.DoubleClick += delegate { if (Selected != null) { DialogResult = DialogResult.OK; Close(); } };
-            LoadEntries();
+            Text = "添加游戏"; Icon = Theme.AppIcon; Font = Theme.Body; BackColor = Theme.Canvas; AutoScaleMode = AutoScaleMode.None;
+            float s; using (var g = CreateGraphics()) s = g.DpiX / 96;
+            ClientSize = new Size((int)(540 * s), (int)(460 * s)); StartPosition = FormStartPosition.CenterParent;
+            FormBorderStyle = FormBorderStyle.FixedSingle;
+            MinimizeBox = MaximizeBox = false; ShowInTaskbar = false;
+            var title = new Label { Text = "添加游戏", Font = Theme.Title, ForeColor = Theme.Ink };
+            title.SetBounds((int)(24 * s), (int)(20 * s), (int)(480 * s), (int)(40 * s)); Controls.Add(title);
+            var searchSurface = new Surface(); searchSurface.SetBounds((int)(24 * s), (int)(78 * s), (int)(492 * s), (int)(42 * s));
+            search.BorderStyle = BorderStyle.None; search.Font = Theme.Body;
+            search.SetBounds((int)(14 * s), (int)(11 * s), (int)(460 * s), (int)(25 * s));
+            searchSurface.Controls.Add(search); Controls.Add(searchSurface);
+            var listSurface = new Surface(); listSurface.SetBounds((int)(24 * s), (int)(136 * s), (int)(492 * s), (int)(248 * s));
+            list.BorderStyle = BorderStyle.None; list.Font = Theme.Body; list.IntegralHeight = false; list.DrawMode = DrawMode.OwnerDrawFixed;
+            list.ItemHeight = (int)(40 * s); list.SetBounds((int)(12 * s), (int)(12 * s), (int)(468 * s), (int)(224 * s));
+            list.DrawItem += delegate(object sender, DrawItemEventArgs e) {
+                if (e.Index < 0) return; var item = (ProcessEntry)list.Items[e.Index];
+                e.Graphics.FillRectangle(Brushes.White, e.Bounds);
+                if ((e.State & DrawItemState.Selected) != 0) Theme.FillRound(e.Graphics, e.Bounds, 8 * s, Theme.Canvas);
+                Theme.Text(e.Graphics, item.Name, Theme.Body, Theme.Ink, new Rectangle(e.Bounds.X + (int)(10 * s), e.Bounds.Y, e.Bounds.Width - (int)(100 * s), e.Bounds.Height), TextFormatFlags.SingleLine);
+                Theme.Text(e.Graphics, item.Id.ToString(), Theme.Small, Theme.Muted, new Rectangle(e.Bounds.Right - (int)(80 * s), e.Bounds.Y, (int)(65 * s), e.Bounds.Height), TextFormatFlags.Right | TextFormatFlags.SingleLine);
+            };
+            listSurface.Controls.Add(list); Controls.Add(listSurface);
+            var refresh = new QuietButton { Text = "刷新" };
+            refresh.SetBounds((int)(20 * s), (int)(408 * s), (int)(76 * s), (int)(32 * s)); refresh.Click += delegate { LoadEntries(); }; Controls.Add(refresh);
+            add = new QuietButton { Text = "添加", Primary = true };
+            add.SetBounds((int)(424 * s), (int)(404 * s), (int)(92 * s), (int)(38 * s)); add.Click += delegate { Choose(); }; Controls.Add(add); AcceptButton = add;
+            search.TextChanged += delegate { Filter(); }; list.SelectedIndexChanged += delegate { add.Enabled = Selected != null; };
+            list.DoubleClick += delegate { Choose(); };
+            Shown += delegate { SendMessage(search.Handle, 0x1501, new IntPtr(1), "搜索程序"); search.Focus(); }; LoadEntries();
         }
-        private void LoadEntries()
-        {
-            entries = ProcessScanner.Snapshot();
-            entries.RemoveAll(delegate(ProcessEntry p) { return !p.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || AppConfig.IsLauncher(p.Name); });
-            entries.Sort(delegate(ProcessEntry a, ProcessEntry b) { return StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name); });
-            Filter();
+        private void Choose() { if (Selected != null) { DialogResult = DialogResult.OK; Close(); } }
+        private void LoadEntries() {
+            entries = ProcessScanner.Snapshot(); entries.RemoveAll(delegate(ProcessEntry p) { return !p.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) || AppConfig.IsLauncher(p.Name); });
+            entries.Sort(delegate(ProcessEntry a, ProcessEntry b) { return StringComparer.OrdinalIgnoreCase.Compare(a.Name, b.Name); }); Filter();
         }
-        private void Filter()
-        {
-            list.BeginUpdate(); list.Items.Clear();
-            foreach (var p in entries) if (p.Name.IndexOf(search.Text, StringComparison.OrdinalIgnoreCase) >= 0) list.Items.Add(p);
-            list.EndUpdate();
+        private void Filter() {
+            list.BeginUpdate(); list.Items.Clear(); foreach (var p in entries) if (p.Name.IndexOf(search.Text, StringComparison.OrdinalIgnoreCase) >= 0) list.Items.Add(p);
+            list.EndUpdate(); add.Enabled = false;
         }
+        [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern IntPtr SendMessage(IntPtr hwnd, int msg, IntPtr wParam, string lParam);
     }
 }
